@@ -24,6 +24,7 @@
 #define MAX_PACKET_SIZE 65536
 #define DEFAULT_LISTEN "0.0.0.0"
 #define DEFAULT_PORT 8125
+#define MAX_TAGS 3
 
 #define METRIC_TYPE_COUNTER 1
 #define METRIC_TYPE_GAUGE   2
@@ -50,15 +51,8 @@ struct carbon_message {
     int value_len;
     int type;
     double sample_rate;
-    struct carbon_tag *tags[3];          /* restrict up to 3 tags */
+    char tags[MAX_TAGS][100];          /* key=value up to 100 chars */
     int tags_size;
-};
-
-struct carbon_tag {
-    char *key;
-    int key_len;
-    char *value;
-    int value_len;
 };
 
 static void pack_string(msgpack_packer *mp_pck, char *str, ssize_t len)
@@ -70,19 +64,11 @@ static void pack_string(msgpack_packer *mp_pck, char *str, ssize_t len)
     msgpack_pack_str_body(mp_pck, str, len);
 }
 
-static void pack_tags_map(msgpack_packer *mp_pck, struct carbon_message *m)
+static void pack_tags_array(msgpack_packer *mp_pck, struct carbon_message *m)
 {
-    return;
-    if(m->tags_size > 0) {
-        msgpack_pack_map(mp_pck, m->tags_size);
-        for(uint i = 0; i < m->tags_size; ++i) {
-            pack_string(mp_pck, m->tags[i]->key, m->tags[i]->key_len);
-            pack_string(mp_pck, m->tags[i]->value, m->tags[i]->value_len);
-        }
-    } else {
-        //msgpack_pack_map(mp_pck, 1);
-        pack_string(mp_pck, "key", 3);
-        pack_string(mp_pck, "value", 5);
+    msgpack_pack_array(mp_pck, m->tags_size);
+    for(uint i = 0; i < m->tags_size; ++i) {
+        pack_string(mp_pck, m->tags[i], strlen(m->tags[i]));
     }
 }
 
@@ -103,17 +89,15 @@ static int get_metric_type(char *str)
     return METRIC_TYPE_COUNTER;
 }
 
-static void parse_tags(char *str, struct carbon_message *m)
+static void get_tags(char *str, struct carbon_message *m)
 {
    int i = 0;
    char *pair = strtok(str, ";");
    while(pair != NULL) {
-      m->tags[i] = malloc(sizeof(struct carbon_tag));
-      m->tags[i]->key = pair;
-      m->tags[i]->key_len = strchr(pair, '=') - pair;
-      m->tags[i]->value = (1 + pair + m->tags[i]->key_len);
-      m->tags[i]->value_len = (1 - strlen(pair) - m->tags[i]->key_len);
-      ++i;
+      if(i == MAX_TAGS) {
+          break;
+      }
+      strcpy(m->tags[i++], pair);
       pair = strtok(NULL, ";");
    }
    m->tags_size = i;
@@ -122,11 +106,6 @@ static void parse_tags(char *str, struct carbon_message *m)
 static int is_incremental(char *str)
 {
     return (*str == '+' || *str == '-');
-}
-
-static bool has_tags(struct carbon_message *m)
-{
-    return (m->tags_size > 0);
 }
 
 static int carbon_process_message(msgpack_packer *mp_pck,
@@ -146,7 +125,8 @@ static int carbon_process_message(msgpack_packer *mp_pck,
         msgpack_pack_double(mp_pck, atof(m->value));
         pack_string(mp_pck, "sample_rate", 11);
         msgpack_pack_double(mp_pck, m->sample_rate);
-        pack_tags_map(mp_pck, m);
+        pack_string(mp_pck, "tags", 4);
+        pack_tags_array(mp_pck, m);
         break;
     case METRIC_TYPE_GAUGE:
         msgpack_pack_map(mp_pck, 5);
@@ -158,7 +138,8 @@ static int carbon_process_message(msgpack_packer *mp_pck,
         msgpack_pack_double(mp_pck, atof(m->value));
         pack_string(mp_pck, "incremental", 11);
         msgpack_pack_int(mp_pck, is_incremental(m->value));
-        pack_tags_map(mp_pck, m);
+        pack_string(mp_pck, "tags", 4);
+        pack_tags_array(mp_pck, m);
         break;
     case METRIC_TYPE_TIMER:
         msgpack_pack_map(mp_pck, 5);
@@ -170,7 +151,8 @@ static int carbon_process_message(msgpack_packer *mp_pck,
         msgpack_pack_double(mp_pck, atof(m->value));
         pack_string(mp_pck, "sample_rate", 11);
         msgpack_pack_double(mp_pck, m->sample_rate);
-        pack_tags_map(mp_pck, m);
+        pack_string(mp_pck, "tags", 4);
+        pack_tags_array(mp_pck, m);
         break;
     case METRIC_TYPE_SET:
         msgpack_pack_map(mp_pck, 4);
@@ -180,7 +162,8 @@ static int carbon_process_message(msgpack_packer *mp_pck,
         pack_string(mp_pck, m->bucket, m->bucket_len);
         pack_string(mp_pck, "value", 5);
         pack_string(mp_pck, m->value, m->value_len);
-        pack_tags_map(mp_pck, m);
+        pack_string(mp_pck, "tags", 4);
+        pack_tags_array(mp_pck, m);
         break;
     }
 
@@ -212,11 +195,12 @@ static int carbon_process_line(struct flb_carbon *ctx,
      * bucket;tag1=value1;tag2=value2:metric|type|@sample_rate
      *        -----------------------
      */
+    m.tags_size = 0;
     if(semicolon != NULL) {
          char tags[(colon - semicolon) + 1];
          memset(tags, '\0', sizeof(tags));
          strncpy(tags, semicolon + 1, (colon - semicolon - 1));
-         parse_tags(tags, &m);
+         get_tags(tags, &m);
     }
 
     /*
