@@ -43,10 +43,21 @@ These packets can be used the same way original `StatsD` packets but now we'll b
 
 The plugin limits the max number of tags to be `5`, with is enough for most of scenarios.
 
+# Extendend metric namespacing
+Properly naming your metrics is critical to avoid conflicts, confusing data and potentially wrong interpretation later on.
+
+This plugin enforces using extended namespacing, using the same `bucket` name conventions presented on [Practical Guide to Graphite Monitoring](https://matt.aimonetti.net/posts/2013-06-practical-guide-to-graphite-monitoring/):
+
+The `bucket` string can use the following format:
+```
+<namespace>.<section>.<target>.<action>
+```
+Internally the plugin will detect and parse each one properly.
+
 # Extended packet examples
 ### Counter
 ```
-my-counter;env=prod;service=my-service:1|c
+accounts.authentication;env=prod;service=my-service:1|c
 ```
 ### Sampler
 ```
@@ -54,11 +65,11 @@ my-sampler;env=prod;service=my-service:1|c|@0.1
 ```
 ### Timmer
 ```
-my-timer;env=prod;service=my-service:320|ms|@0.1
+query.database.users;env=prod;service=my-service:320|ms|@0.1
 ```
 ### Gauge
 ```
-my-gauge;env=prod;service=my-service:333|g
+memory.java.heap.used;env=prod;service=my-service:333|g
 ```
 ### Set
 ```

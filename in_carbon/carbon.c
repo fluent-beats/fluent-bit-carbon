@@ -24,7 +24,7 @@
 #define MAX_PACKET_SIZE 65536
 #define DEFAULT_LISTEN "0.0.0.0"
 #define DEFAULT_PORT 8125
-#define MAX_TAGS 3
+#define MAX_TAGS 5
 
 #define METRIC_TYPE_COUNTER 1
 #define METRIC_TYPE_GAUGE   2
@@ -47,6 +47,14 @@ struct flb_carbon {
 struct carbon_message {
     char *bucket;
     int bucket_len;
+    char *namespace;
+    int namespace_len;
+    char *section;
+    int section_len;
+    char *target;
+    int target_len;
+    char *action;
+    int action_len;
     char *value;
     int value_len;
     int type;
@@ -89,8 +97,49 @@ static int get_metric_type(char *str)
     return METRIC_TYPE_COUNTER;
 }
 
+static void split_bucket(struct carbon_message *m)
+{
+    char *next;
+    char *limit = (m->bucket + m->bucket_len);
+
+   /*
+    * namespace.section.target.action
+    *
+    */
+    m->namespace = m->bucket;
+    m->namespace_len = m->bucket_len;
+    m->section = "";
+    m->section_len = 0;
+    m->target = "";
+    m->target_len = 0;
+    m->action = "";
+    m->action_len = 0;
+
+    next = strchr(m->namespace, '.');
+    if(next != NULL && (limit - next) > 0) {
+        m->namespace_len = (next - m->namespace);
+        m->section = next + 1;
+        m->section_len = (limit - next - 1);
+
+        next = strchr(m->section, '.');
+        if(next != NULL && (limit - next) > 0) {
+            m->section_len = (next - m->section);
+            m->target = next + 1;
+            m->target_len = (limit - next - 1);
+
+            next = strchr(m->target, '.');
+            if(next != NULL && (limit - next) > 0) {
+                m->target_len = (next - m->target);
+                m->action = next + 1;
+                m->action_len = (limit - next - 1);
+            }
+        }
+    }
+}
+
 static void get_tags(char *str, struct carbon_message *m)
 {
+    // TODO: REMOVE strcpy
    int i = 0;
    char *pair = strtok(str, ";");
    while(pair != NULL) {
@@ -116,11 +165,19 @@ static int carbon_process_message(msgpack_packer *mp_pck,
 
     switch (m->type) {
     case METRIC_TYPE_COUNTER:
-        msgpack_pack_map(mp_pck, 5);
+        msgpack_pack_map(mp_pck, 9);
         pack_string(mp_pck, "type", 4);
         pack_string(mp_pck, "counter", 7);
         pack_string(mp_pck, "bucket", 6);
         pack_string(mp_pck, m->bucket, m->bucket_len);
+        pack_string(mp_pck, "namespace", 9);
+        pack_string(mp_pck, m->namespace, m->namespace_len);
+        pack_string(mp_pck, "section", 7);
+        pack_string(mp_pck, m->section, m->section_len);
+        pack_string(mp_pck, "target", 6);
+        pack_string(mp_pck, m->target, m->target_len);
+        pack_string(mp_pck, "action", 6);
+        pack_string(mp_pck, m->action, m->action_len);
         pack_string(mp_pck, "value", 5);
         msgpack_pack_double(mp_pck, atof(m->value));
         pack_string(mp_pck, "sample_rate", 11);
@@ -129,11 +186,19 @@ static int carbon_process_message(msgpack_packer *mp_pck,
         pack_tags_array(mp_pck, m);
         break;
     case METRIC_TYPE_GAUGE:
-        msgpack_pack_map(mp_pck, 5);
+        msgpack_pack_map(mp_pck, 9);
         pack_string(mp_pck, "type", 4);
         pack_string(mp_pck, "gauge", 5);
         pack_string(mp_pck, "bucket", 6);
         pack_string(mp_pck, m->bucket, m->bucket_len);
+        pack_string(mp_pck, "namespace", 9);
+        pack_string(mp_pck, m->namespace, m->namespace_len);
+        pack_string(mp_pck, "section", 7);
+        pack_string(mp_pck, m->section, m->section_len);
+        pack_string(mp_pck, "target", 6);
+        pack_string(mp_pck, m->target, m->target_len);
+        pack_string(mp_pck, "action", 6);
+        pack_string(mp_pck, m->action, m->action_len);
         pack_string(mp_pck, "value", 5);
         msgpack_pack_double(mp_pck, atof(m->value));
         pack_string(mp_pck, "incremental", 11);
@@ -142,11 +207,19 @@ static int carbon_process_message(msgpack_packer *mp_pck,
         pack_tags_array(mp_pck, m);
         break;
     case METRIC_TYPE_TIMER:
-        msgpack_pack_map(mp_pck, 5);
+        msgpack_pack_map(mp_pck, 9);
         pack_string(mp_pck, "type", 4);
         pack_string(mp_pck, "timer", 5);
         pack_string(mp_pck, "bucket", 6);
         pack_string(mp_pck, m->bucket, m->bucket_len);
+        pack_string(mp_pck, "namespace", 9);
+        pack_string(mp_pck, m->namespace, m->namespace_len);
+        pack_string(mp_pck, "section", 7);
+        pack_string(mp_pck, m->section, m->section_len);
+        pack_string(mp_pck, "target", 6);
+        pack_string(mp_pck, m->target, m->target_len);
+        pack_string(mp_pck, "action", 6);
+        pack_string(mp_pck, m->action, m->action_len);
         pack_string(mp_pck, "value", 5);
         msgpack_pack_double(mp_pck, atof(m->value));
         pack_string(mp_pck, "sample_rate", 11);
@@ -155,11 +228,19 @@ static int carbon_process_message(msgpack_packer *mp_pck,
         pack_tags_array(mp_pck, m);
         break;
     case METRIC_TYPE_SET:
-        msgpack_pack_map(mp_pck, 4);
+        msgpack_pack_map(mp_pck, 8);
         pack_string(mp_pck, "type", 4);
         pack_string(mp_pck, "set", 3);
         pack_string(mp_pck, "bucket", 6);
         pack_string(mp_pck, m->bucket, m->bucket_len);
+        pack_string(mp_pck, "namespace", 9);
+        pack_string(mp_pck, m->namespace, m->namespace_len);
+        pack_string(mp_pck, "section", 7);
+        pack_string(mp_pck, m->section, m->section_len);
+        pack_string(mp_pck, "target", 6);
+        pack_string(mp_pck, m->target, m->target_len);
+        pack_string(mp_pck, "action", 6);
+        pack_string(mp_pck, m->action, m->action_len);
         pack_string(mp_pck, "value", 5);
         pack_string(mp_pck, m->value, m->value_len);
         pack_string(mp_pck, "tags", 4);
@@ -190,6 +271,7 @@ static int carbon_process_line(struct flb_carbon *ctx,
     }
     m.bucket = line;
     m.bucket_len = (semicolon != NULL) ? (semicolon - line) : (colon - line);
+    split_bucket(&m);
 
     /*
      * bucket;tag1=value1;tag2=value2:metric|type|@sample_rate
