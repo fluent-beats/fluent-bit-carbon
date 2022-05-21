@@ -139,7 +139,7 @@ static void split_bucket(struct carbon_message *m)
 
 static void get_tags(char *str, struct carbon_message *m)
 {
-    // TODO: REMOVE strcpy
+   // TODO: REMOVE strcpy
    int i = 0;
    char *pair = strtok(str, ";");
    while(pair != NULL) {

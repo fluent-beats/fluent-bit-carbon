@@ -1,4 +1,4 @@
-# Fluent Bit Carbon Plugin
+# Description
 
 [Fluent Bit](https://fluentbit.io) input plugin to support metrics using [StatsD](https://github.com/statsd/statsd) metrics + [Graphite/Carbon](https://graphite.readthedocs.io/en/latest/tags.html) tags
 
@@ -7,18 +7,19 @@
 - Docker
 - Docker image `etriphany/fluent-bit-plugin-dev`
 
-# Build the plugin
+# Build
 ```bash
 ./build.sh
 ```
 
-# Test the plugin
+# Test
 ```bash
 docker run --rm -p 8125:8125/udp -v $(pwd)/build:/my_plugin fluent/fluent-bit:1.8.4 /fluent-bit/bin/fluent-bit -e /my_plugin/flb-in_carbon.so -i carbon -o stdout
  ```
 
-# Why I'll need this?
+# Design
 
+## Tags support
 The original `StatsD` packet format looks like this:
 ```
 bucket:metric|type|@sample_rate
@@ -43,7 +44,7 @@ These packets can be used the same way original `StatsD` packets but now we'll b
 
 The plugin limits the max number of tags to be `5`, with is enough for most of scenarios.
 
-# Extendend metric namespacing
+## Extendend metric namespacing
 Properly naming your metrics is critical to avoid conflicts, confusing data and potentially wrong interpretation later on.
 
 This plugin enforces using extended namespacing, using the same `bucket` name conventions presented on [Practical Guide to Graphite Monitoring](https://matt.aimonetti.net/posts/2013-06-practical-guide-to-graphite-monitoring/):
@@ -54,7 +55,7 @@ The `bucket` string can use the following format:
 ```
 Internally the plugin will detect and parse each one properly.
 
-# Extended packet examples
+## Extended packet examples
 ### Counter
 ```
 accounts.authentication;env=prod;service=my-service:1|c
