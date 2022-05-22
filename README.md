@@ -14,10 +14,16 @@
 
 # Test
 ```bash
-docker run --rm -p 8125:8125/udp -v $(pwd)/build:/my_plugin fluent/fluent-bit:1.8.4 /fluent-bit/bin/fluent-bit -e /my_plugin/flb-in_carbon.so -i carbon -o stdout
+docker run --rm \
+      -p 8125:8125/udp \
+      -v $(pwd)/code/build:/my_plugin \
+      fluent/fluent-bit:1.8.4 /fluent-bit/bin/fluent-bit -e /my_plugin/flb-in_carbon.so -i carbon -o stdout
  ```
 
 # Design
+
+## Port mapping
+The plugin requires its published port `8125` be also mapped on `host node`, to simplify the metrics publication from client containers, that just need to send the datagrams to the `localhost`.
 
 ## Tags support
 The original `StatsD` packet format looks like this:
