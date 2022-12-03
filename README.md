@@ -14,10 +14,7 @@
 
 # Test
 ```bash
-docker run --rm \
-      -p 8125:8125/udp \
-      -v $(pwd)/code/build:/my_plugin \
-      fluent/fluent-bit:1.8.4 /fluent-bit/bin/fluent-bit -e /my_plugin/flb-in_carbon.so -i carbon -o stdout
+./test.sh
  ```
 
 # Design
@@ -82,3 +79,12 @@ memory.java.heap.used;env=prod;service=my-service:333|g
 ```
 my-set;env=prod;service=my-service:765|s
 ```
+
+ ## Configurations
+
+This input plugin can be configured using the following parameters:
+
+| Key  | Description | Default |
+| ---- | ----------- | ------ |
+| Listen  | Listener network interface.  | 0.0.0.0 |
+| Port  | UDP port where listening for connections  | 8125 |
