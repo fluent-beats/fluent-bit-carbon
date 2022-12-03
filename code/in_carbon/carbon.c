@@ -349,12 +349,8 @@ static int cb_carbon_receive(struct flb_input_instance *ins,
     line = strtok(ctx->buf, "\n");
     while (line) {
         flb_plg_trace(ctx->ins, "received a line: '%s'", line);
-
-        /* Skip empty packets sent over netcat */
-        if(strlen(line) > 3) {
-            if (carbon_process_line(ctx, &mp_pck, line) < 0) {
-                flb_plg_error(ctx->ins, "failed to process line: '%s'", line);
-            }
+        if (carbon_process_line(ctx, &mp_pck, line) < 0) {
+            flb_plg_error(ctx->ins, "failed to process line: '%s'", line);
         }
         line = strtok(NULL, "\n");
     }
