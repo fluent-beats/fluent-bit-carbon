@@ -58,6 +58,15 @@ The `bucket` string can use the following format:
 ```
 Internally the plugin will detect and parse each one properly.
 
+## Supported integrations
+
+The plugin should be able to send StatsD compatible metrics to the following agents:
+
+- Carbon
+- Telegraph
+- Sysdig StatsD
+- Etsy StatsD
+
 ## Extended packet examples
 ### Counter
 ```
@@ -84,7 +93,8 @@ my-set;env=prod;service=my-service:765|s
 
 This input plugin can be configured using the following parameters:
 
-| Key  | Description | Default |
-| ---- | ----------- | ------ |
-| Listen  | Listener network interface.  | 0.0.0.0 |
-| Port  | UDP port where listening for connections  | 8125 |
+ Key                    | Description                                   | Default
+------------------------|-----------------------------------------------|------------------
+ Listen                 | Listener network interface.                   | 0.0.0.0
+ Port                   | UDP port where listening for connections      | 8125
+ Tags_Splitter          | Define the token used to split each tag       | ;
