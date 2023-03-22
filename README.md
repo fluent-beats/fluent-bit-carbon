@@ -15,6 +15,7 @@
 # Test
 ```bash
 ./test.sh
+echo "click.user.value.found;t1=v1;t2=v2;t3=v3;t4=v4;t5=v5;t6=v6:10|c|@0.1" | nc -u 127.0.0.1 8125
  ```
 
 # Design

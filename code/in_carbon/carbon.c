@@ -266,7 +266,7 @@ static int carbon_process_line(struct flb_carbon *ctx,
     semicolon = strchr(line, ';');
     colon = strchr(line, ':');
     if (colon == NULL) {
-        flb_plg_error(ctx->ins, "no bucket name found");
+        flb_plg_debug(ctx->ins, "no bucket name found");
         return -1;
     }
     m.bucket = line;
@@ -293,7 +293,7 @@ static int carbon_process_line(struct flb_carbon *ctx,
      */
     bar = strchr(colon + 1, '|');
     if (bar == NULL) {
-        flb_plg_error(ctx->ins, "no metric type found");
+        flb_plg_debug(ctx->ins, "no metric type found");
         return -1;
     }
     m.type = get_metric_type(bar + 1);
@@ -350,7 +350,7 @@ static int cb_carbon_receive(struct flb_input_instance *ins,
     while (line) {
         flb_plg_trace(ctx->ins, "received a line: '%s'", line);
         if (carbon_process_line(ctx, &mp_pck, line) < 0) {
-            flb_plg_error(ctx->ins, "failed to process line: '%s'", line);
+            flb_plg_debug(ctx->ins, "failed to process line: '%s'", line);
         }
         line = strtok(NULL, "\n");
     }
