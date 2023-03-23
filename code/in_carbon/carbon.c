@@ -21,47 +21,7 @@
 #include <fluent-bit/flb_socket.h>
 #include <fluent-bit/flb_pack.h>
 
-#define MAX_PACKET_SIZE 65536
-#define DEFAULT_LISTEN "0.0.0.0"
-#define DEFAULT_PORT 8125
-#define MAX_TAGS 5
-
-#define METRIC_TYPE_COUNTER 1
-#define METRIC_TYPE_GAUGE   2
-#define METRIC_TYPE_TIMER   3
-#define METRIC_TYPE_SET     4
-
-struct flb_carbon {
-    char *buf;                         /* buffer */
-    char listen[256];                  /* listening address (RFC-2181) */
-    char port[6];                      /* listening port (RFC-793) */
-    flb_sockfd_t server_fd;            /* server socket */
-    flb_pipefd_t coll_fd;              /* server handler */
-    struct flb_input_instance *ins;    /* input instance */
-};
-
-/*
- * The "carbon_message" represents a single line in UDP packet.
- * It's just a bunch of pointers to ephemeral buffer.
- */
-struct carbon_message {
-    char *bucket;
-    int bucket_len;
-    char *namespace;
-    int namespace_len;
-    char *section;
-    int section_len;
-    char *target;
-    int target_len;
-    char *action;
-    int action_len;
-    char *value;
-    int value_len;
-    int type;
-    double sample_rate;
-    char tags[MAX_TAGS][100];          /* key=value up to 100 chars */
-    int tags_size;
-};
+#include "carbon.h"
 
 static void pack_string(msgpack_packer *mp_pck, char *str, ssize_t len)
 {
@@ -137,17 +97,17 @@ static void split_bucket(struct carbon_message *m)
     }
 }
 
-static void get_tags(char *str, struct carbon_message *m)
+static void get_tags(const char* token, char *str, struct carbon_message *m)
 {
    // TODO: REMOVE strcpy
    int i = 0;
-   char *pair = strtok(str, ";");
+   char *pair = strtok(str, token);
    while(pair != NULL) {
       if(i == MAX_TAGS) {
           break;
       }
       strcpy(m->tags[i++], pair);
-      pair = strtok(NULL, ";");
+      pair = strtok(NULL, token);
    }
    m->tags_size = i;
 }
@@ -282,7 +242,7 @@ static int carbon_process_line(struct flb_carbon *ctx,
          char tags[(colon - semicolon) + 1];
          memset(tags, '\0', sizeof(tags));
          strncpy(tags, semicolon + 1, (colon - semicolon - 1));
-         get_tags(tags, &m);
+         get_tags(ctx->tag_token, tags, &m);
     }
 
     /*
@@ -370,6 +330,7 @@ static int cb_carbon_init(struct flb_input_instance *ins,
     struct flb_carbon *ctx;
     char *listen;
     int port;
+    const char *pval = NULL;
 
     ctx = flb_calloc(1, sizeof(struct flb_carbon));
     if (!ctx) {
@@ -402,6 +363,14 @@ static int cb_carbon_init(struct flb_input_instance *ins,
         port = DEFAULT_PORT;
     }
     snprintf(ctx->port, sizeof(ctx->port), "%hu", (unsigned short) port);
+
+    /* Tags splitter token */
+    pval = flb_input_get_property("tags_splitter", ins);
+    if (pval != NULL) {
+        ctx->tag_token = flb_strndup(pval, 1);
+    } else {
+       ctx->tag_token = DEFAULT_TAG_SPLITTER;
+    }
 
     /* Export plugin context */
     flb_input_set_context(ins, ctx);
